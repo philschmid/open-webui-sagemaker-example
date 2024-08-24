@@ -1,0 +1,230 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'CloudFormation template for ECS deployment of Pipelines and Open WebUI with SageMaker permissions'
+
+Parameters:
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: The VPC ID where the ECS cluster will be created
+
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: List of Subnet IDs where the ECS tasks will be placed
+
+  SageMakerEndpointName:
+    Type: String
+    Description: Name of the SageMaker endpoint to invoke
+
+Resources:
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: OpenWebUICluster
+
+  PipelinesTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: pipelines-task
+      Cpu: '256'
+      Memory: '512'
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      ExecutionRoleArn: !Ref ECSTaskExecutionRole
+      TaskRoleArn: !Ref PipelinesTaskRole
+      ContainerDefinitions:
+        - Name: pipelines
+          Image: ghcr.io/open-webui/pipelines:latest
+          PortMappings:
+            - ContainerPort: 9099
+          Environment:
+            - Name: SAGEMAKER_ENDPOINT_NAME
+              Value: !Ref SageMakerEndpointName
+            - Name: PIPELINES_URLS
+              Value: "https://raw.githubusercontent.com/philschmid/open-webui-sagemaker-example/main/pipelines/aws_sagemaker_pipeline.py"
+
+  OpenWebUITaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: open-webui-task
+      Cpu: '256'
+      Memory: '512'
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      ExecutionRoleArn: !Ref ECSTaskExecutionRole
+      TaskRoleArn: !Ref ECSTaskRole
+      ContainerDefinitions:
+        - Name: open-webui
+          Image: ghcr.io/open-webui/open-webui:main
+          PortMappings:
+            - ContainerPort: 8080
+          Environment:
+            - Name: WEBUI_AUTH
+              Value: 'False'
+            - Name: OPENAI_API_KEY
+              Value: 0p3n-w3bu!
+
+  PipelinesSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for Pipelines service
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 9099
+          ToPort: 9099
+          CidrIp: 0.0.0.0/0
+
+  OpenWebUISecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for Open WebUI service
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          CidrIp: 0.0.0.0/0
+
+  ALB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: OpenWebUIALB
+      Subnets: !Ref SubnetIds
+      SecurityGroups:
+        - !Ref PipelinesSecurityGroup
+        - !Ref OpenWebUISecurityGroup
+      Scheme: internet-facing
+      LoadBalancerAttributes:
+        - Key: idle_timeout.timeout_seconds
+          Value: '60'
+
+  ALBListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref ALB
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref OpenWebUITargetGroup
+
+  PipelinesTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      VpcId: !Ref VpcId
+      Port: 9099
+      Protocol: HTTP
+      TargetType: ip
+      HealthCheckIntervalSeconds: 30
+      HealthCheckPath: /
+      HealthCheckProtocol: HTTP
+      HealthyThresholdCount: 5
+      UnhealthyThresholdCount: 2
+      Matcher:
+        HttpCode: 200
+
+  OpenWebUITargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      VpcId: !Ref VpcId
+      Port: 8080
+      Protocol: HTTP
+      TargetType: ip
+      HealthCheckIntervalSeconds: 30
+      HealthCheckPath: /
+      HealthCheckProtocol: HTTP
+      HealthyThresholdCount: 5
+      UnhealthyThresholdCount: 2
+      Matcher:
+        HttpCode: 200
+
+  PipelinesService:
+    Type: AWS::ECS::Service
+    Properties:
+      ServiceName: pipelines-service
+      Cluster: !Ref ECSCluster
+      TaskDefinition: !Ref PipelinesTaskDefinition
+      DesiredCount: 1
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          Subnets: !Ref SubnetIds
+          SecurityGroups:
+            - !Ref PipelinesSecurityGroup
+      LoadBalancers:
+        - ContainerName: pipelines
+          ContainerPort: 9099
+          TargetGroupArn: !Ref PipelinesTargetGroup
+
+  OpenWebUIService:
+    Type: AWS::ECS::Service
+    DependsOn: PipelinesService
+    Properties:
+      ServiceName: open-webui-service
+      Cluster: !Ref ECSCluster
+      TaskDefinition: !Ref OpenWebUITaskDefinition
+      DesiredCount: 1
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          Subnets: !Ref SubnetIds
+          SecurityGroups:
+            - !Ref OpenWebUISecurityGroup
+      LoadBalancers:
+        - ContainerName: open-webui
+          ContainerPort: 8080
+          TargetGroupArn: !Ref OpenWebUITargetGroup
+
+  ECSTaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+
+  ECSTaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+
+  PipelinesTaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: SageMakerInvokeEndpoint
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sagemaker:InvokeEndpoint
+                Resource: !Sub 'arn:aws:sagemaker:${AWS::Region}:${AWS::AccountId}:endpoint/${SageMakerEndpointName}'
+
+Outputs:
+  OpenWebUIServiceURL:
+    Description: URL for Open WebUI Service
+    Value: !GetAtt ALB.DNSName

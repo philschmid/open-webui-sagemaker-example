@@ -47,7 +47,32 @@ The architecture consists of the following components:
    - Open the URL `http://localhost:3000` in your web browser.
 
 4. **(WIP) Deploy to AWS:**
+   _Note: The deployment to AWS is not connecting and filesystem or database, so the chat data will be lost when the container is stopped._
 
+   - Use the `aws` cli to create a new Cloudformation stack, replacing the `ParameterValue` for `VpcId`, `SubnetIds`, and `SageMakerEndpointName` parameters with your own values:
+
+     ```bash
+     AWS_PROFILE=hf-sm AWS_DEFAULT_REGION=us-east-1    aws cloudformation create-stack \
+     --stack-name OpenWebUIECSStack \
+     --template-body file://ecs-openwebui-template.yaml \
+     --parameters \
+     ParameterKey=VpcId,ParameterValue=vpc-20e43f5d \
+     ParameterKey=SubnetIds,ParameterValue=subnet-b73cb4e8\\,subnet-2d7df24b\\,subnet-a08b1e81 \
+     ParameterKey=SageMakerEndpointName,ParameterValue=meta-llama-3-8b-instruct \
+     --capabilities CAPABILITY_IAM
+     ```
+
+   - If you need to update the stack in the future, you can use the update-stack command:
+     ```bash
+     AWS_PROFILE=hf-sm AWS_DEFAULT_REGION=us-east-1    aws cloudformation update-stack \
+     --stack-name OpenWebUIECSStack \
+     --template-body file://ecs-openwebui-template.yaml \
+     --parameters \
+     ParameterKey=VpcId,ParameterValue=vpc-20e43f5d \
+     ParameterKey=SubnetIds,ParameterValue=subnet-b73cb4e8\\,subnet-2d7df24b\\,subnet-a08b1e81 \
+     ParameterKey=SageMakerEndpointName,ParameterValue=meta-llama-3-8b-instruct \
+     --capabilities CAPABILITY_IAM
+     ```
    - Once the Cloudformation stack is deployed, you will find the URL for accessing Open WebUI in the Outputs section of the stack.
    - Open the URL in your web browser.
 
