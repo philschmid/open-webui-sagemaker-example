@@ -6,7 +6,7 @@ services:
     ports:
       - '9099:9099'
     volumes:
-      - ./pipelines:/app/pipelines
+      - ./pipelines-remote:/app/pipelines
     env_file:
       - .env
     extra_hosts:
