@@ -5,7 +5,7 @@ date: 2024-08-24
 version: 1.0
 license: MIT
 description: A pipeline for generating text and processing images using Amazon SageMaker Endpoints.
-requirements: requests, boto3
+requirements: boto3
 environment_variables: AWS_ACCESS_KEY, AWS_SECRET_KEY, AWS_REGION_NAME, SAGEMAKER_ENDPOINT_NAME
 """
 
@@ -20,7 +20,6 @@ import boto3
 from pydantic import BaseModel
 
 import os
-import requests
 
 
 # Helper for reading lines from a stream
@@ -55,9 +54,6 @@ class LineIterator:
 
 class Pipeline:
     class Valves(BaseModel):
-        AWS_ACCESS_KEY: str = ""
-        AWS_SECRET_KEY: str = ""
-        AWS_REGION_NAME: str = ""
         SAGEMAKER_ENDPOINT_NAME: str = ""
 
     def __init__(self):
@@ -71,18 +67,15 @@ class Pipeline:
 
         self.valves = self.Valves(
             **{
-                "AWS_ACCESS_KEY": os.getenv("AWS_ACCESS_KEY", None),
-                "AWS_SECRET_KEY": os.getenv("AWS_SECRET_KEY", None),
-                "AWS_REGION_NAME": os.getenv("AWS_REGION_NAME", None),
                 "SAGEMAKER_ENDPOINT_NAME": os.getenv("SAGEMAKER_ENDPOINT_NAME", None),
             }
         )
 
         self.smr = boto3.client(
             "sagemaker-runtime",
-            aws_access_key_id=self.valves.AWS_ACCESS_KEY,
-            aws_secret_access_key=self.valves.AWS_SECRET_KEY,
-            region_name=self.valves.AWS_REGION_NAME,
+            aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID", None),
+            aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY", None),
+            region_name=os.getenv("AWS_REGION_NAME", None),
         )
 
         self.pipelines = self.get_models()
@@ -102,9 +95,9 @@ class Pipeline:
         print(f"on_valves_updated:{__name__}")
         self.smr = boto3.client(
             "sagemaker-runtime",
-            aws_access_key_id=self.valves.AWS_ACCESS_KEY,
-            aws_secret_access_key=self.valves.AWS_SECRET_KEY,
-            region_name=self.valves.AWS_REGION_NAME,
+            aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID", None),
+            aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY", None),
+            region_name=os.getenv("AWS_REGION_NAME", None),
         )
 
         self.pipelines = self.get_models()
@@ -169,4 +162,5 @@ class Pipeline:
             Body=json.dumps(payload),
             ContentType="application/json",
         )
-        return resp["Body"].read().decode("utf-8")
+        r = json.loads(resp["Body"].read().decode("utf-8"))
+        return r["choices"][0]["message"]["content"]

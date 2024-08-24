@@ -52,7 +52,5 @@ Contributions are welcome! Please open an issue or submit a pull request if you 
 
 This project is licensed under the Apache 2.0 License - see the [LICENSE](LICENSE) file for details.
 
-docker run -it -p 4000:4000 -v $(pwd)/proxy.yaml:/proxy.yaml ghcr.io/berriai/litellm:main-latest --config /proxy.yaml
-
 docker run -it -p 9099:9099 --add-host=host.docker.internal:host-gateway -v $(pwd)/pipelines:/app/pipelines --env-file .env ghcr.io/open-webui/pipelines:latest
 docker run -it -p 3000:8080 -v $(pwd)/open-webui:/app/backend/data -e WEBUI_AUTH=False -e OPENAI_API_BASE_URL=http://host.docker.internal:9099 -e OPENAI_API_KEY=0p3n-w3bu! ghcr.io/open-webui/open-webui:main
