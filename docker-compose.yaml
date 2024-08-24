@@ -1,0 +1,27 @@
+version: '3.9'
+
+services:
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: open-webui
+    volumes:
+      - open-webui:/app/backend/data
+    depends_on:
+      - litellm
+    ports:
+      - 3000:8080
+    environment:
+      - WEBUI_SECRET_KEY=your_secret_key # Replace with a strong secret key
+    restart: unless-stopped
+  proxy:
+    image: ghcr.io/berriai/litellm:main-latest
+    container_name: litellm
+    ports:
+      - 4000:8000
+    volumes:
+      - ./litellm/config.yaml:/app/config.yaml
+    command: ['--config', '/app/config.yaml', '--port', '8000']
+    restart: unless-stopped
+
+volumes:
+  open-webui: {}
