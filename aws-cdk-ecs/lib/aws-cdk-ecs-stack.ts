@@ -3,12 +3,11 @@ import * as ecs from 'aws-cdk-lib/aws-ecs';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as ecs_patterns from 'aws-cdk-lib/aws-ecs-patterns';
 import * as logs from 'aws-cdk-lib/aws-logs';
+import * as iam from 'aws-cdk-lib/aws-iam'; // Import IAM module
 import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
 import * as acm from 'aws-cdk-lib/aws-certificatemanager';
 
-
 // cdk deploy --parameters OpenWebUiEcsCdkStack:SageMakerEndpointName=meta-llama-3-8b-instruct
-
 
 export class OpenWebUiEcsCdkStack extends cdk.Stack {
   constructor(scope: cdk.App, id: string, props?: cdk.StackProps) {
@@ -32,6 +31,22 @@ export class OpenWebUiEcsCdkStack extends cdk.Stack {
     // Create a log group for ECS services
     const logGroup = new logs.LogGroup(this, 'LogGroup');
 
+    // Define the IAM role for Pipelines Backend
+    const pipelinesBackendRole = new iam.Role(this, 'PipelinesBackendRole', {
+      assumedBy: new iam.ServicePrincipal('ecs-tasks.amazonaws.com'),
+    });
+
+    // Attach the necessary SageMaker permissions to the role
+    pipelinesBackendRole.addToPolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: [
+        'sagemaker:InvokeEndpoint'
+      ],
+      resources: [
+        `arn:aws:sagemaker:${this.region}:${this.account}:endpoint/${sageMakerEndpointName.valueAsString}`
+      ],
+    }));
+
     // Define the Web UI container
     const webUITaskDef = new ecs.FargateTaskDefinition(this, 'WebUITaskDef');
     const webUIContainer = webUITaskDef.addContainer('WebUiAppContainer', {
@@ -52,13 +67,16 @@ export class OpenWebUiEcsCdkStack extends cdk.Stack {
     });
 
     // Define the Pipelines Backend container
-    const pipelinesBackendTaskDef = new ecs.FargateTaskDefinition(this, 'PipelinesBackendTaskDef');
+    const pipelinesBackendTaskDef = new ecs.FargateTaskDefinition(this, 'PipelinesBackendTaskDef', {
+      taskRole: pipelinesBackendRole // Attach the IAM role to the task definition
+    });
+
     const pipelinesBackendContainer = pipelinesBackendTaskDef.addContainer('PipelinesBackendContainer', {
       image: ecs.ContainerImage.fromRegistry('ghcr.io/open-webui/pipelines:latest'),
       memoryLimitMiB: 512,
       environment: {
         "SAGEMAKER_ENDPOINT_NAME": sageMakerEndpointName.valueAsString,
-        "PIPELINES_URLS": " https://raw.githubusercontent.com/philschmid/open-webui-sagemaker-example/main/pipelines/aws_sagemaker_pipeline.py"
+        "PIPELINES_URLS": "https://raw.githubusercontent.com/philschmid/open-webui-sagemaker-example/main/pipelines/aws_sagemaker_pipeline.py"
       },
       logging: new ecs.AwsLogDriver({
         logGroup,
@@ -85,7 +103,7 @@ export class OpenWebUiEcsCdkStack extends cdk.Stack {
       desiredCount: 1,
     });
 
-    // // Allow WebUI to call pipelines backend
+    // Allow WebUI to call pipelines backend
     pipelinesBackendService.connections.allowFrom(webUIAppService.service, ec2.Port.tcp(9099));
 
     // Output the load balancer URL
