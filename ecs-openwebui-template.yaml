@@ -141,6 +141,7 @@ Resources:
 
   PipelinesService:
     Type: AWS::ECS::Service
+    DependsOn: ALBListener  # Ensures ALB is ready before PipelinesService
     Properties:
       ServiceName: pipelines-service
       Cluster: !Ref ECSCluster
@@ -160,7 +161,7 @@ Resources:
 
   OpenWebUIService:
     Type: AWS::ECS::Service
-    DependsOn: PipelinesService
+    DependsOn: ALBListener  # Ensures ALB is ready before OpenWebUIService
     Properties:
       ServiceName: open-webui-service
       Cluster: !Ref ECSCluster
