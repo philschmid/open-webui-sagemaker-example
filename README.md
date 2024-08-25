@@ -58,6 +58,7 @@ The architecture consists of the following components:
         _Note: Currently the SageMaker endpoint is not created by the CDK, so you need to provide the endpoint name as a parameter._
         ```bash
         cdk deploy --parameters OpenWebUiEcsCdkStack:SageMakerEndpointName=meta-llama-3-8b-instruct
+        # ✨  Deployment time: 592.51s
         ```
       - Note the URL of the deployed Open WebUI in the output.
       - Open the URL in your web browser.
