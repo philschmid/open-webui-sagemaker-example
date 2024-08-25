@@ -46,35 +46,33 @@ The architecture consists of the following components:
      ```
    - Open the URL `http://localhost:3000` in your web browser.
 
-4. **(WIP) Deploy to AWS:**
+4. **Deploy to AWS:**
    _Note: The deployment to AWS is not connecting and filesystem or database, so the chat data will be lost when the container is stopped._
+   1. Using AWS CDK (Recommended):
+      - Install the AWS CDK:
+        ```bash
+        npm install -g aws-cdk
+        ```
+      - Change into the `aws-cdk-ecs` directory.
+      - Deploy the stack using the following command:
+        _Note: Currently the SageMaker endpoint is not created by the CDK, so you need to provide the endpoint name as a parameter._
+        ```bash
+        cdk deploy --parameters OpenWebUiEcsCdkStack:SageMakerEndpointName=meta-llama-3-8b-instruct
+        ```
+      - Note the URL of the deployed Open WebUI in the output.
+      - Open the URL in your web browser.
+      - Clean up the stack using the following command:
+        ```bash
+        cdk destroy
+        ```
 
-   - Use the `aws` cli to create a new Cloudformation stack, replacing the `ParameterValue` for `VpcId`, `SubnetIds`, and `SageMakerEndpointName` parameters with your own values:
+## Planned Features
 
-     ```bash
-     AWS_PROFILE=hf-sm AWS_DEFAULT_REGION=us-east-1    aws cloudformation create-stack \
-     --stack-name OpenWebUIECSStack \
-     --template-body file://ecs-openwebui-template.yaml \
-     --parameters \
-     ParameterKey=VpcId,ParameterValue=vpc-20e43f5d \
-     ParameterKey=SubnetIds,ParameterValue=subnet-b73cb4e8\\,subnet-2d7df24b\\,subnet-a08b1e81 \
-     ParameterKey=SageMakerEndpointName,ParameterValue=meta-llama-3-8b-instruct \
-     --capabilities CAPABILITY_IAM
-     ```
-
-   - If you need to update the stack in the future, you can use the update-stack command:
-     ```bash
-     AWS_PROFILE=hf-sm AWS_DEFAULT_REGION=us-east-1    aws cloudformation update-stack \
-     --stack-name OpenWebUIECSStack \
-     --template-body file://ecs-openwebui-template.yaml \
-     --parameters \
-     ParameterKey=VpcId,ParameterValue=vpc-20e43f5d \
-     ParameterKey=SubnetIds,ParameterValue=subnet-b73cb4e8\\,subnet-2d7df24b\\,subnet-a08b1e81 \
-     ParameterKey=SageMakerEndpointName,ParameterValue=meta-llama-3-8b-instruct \
-     --capabilities CAPABILITY_IAM
-     ```
-   - Once the Cloudformation stack is deployed, you will find the URL for accessing Open WebUI in the Outputs section of the stack.
-   - Open the URL in your web browser.
+- [ ] Add support for RDS/Aurora to store user data and chat history.
+- [ ] Add support for deploying the LLM to a SageMaker endpoint using the CDK.
+- [ ] Add support for multiple LLMs.
+- [ ] Add support for deploying LLMs to ECS.
+- [ ] Add support for EKS.
 
 ## Contributing
 
@@ -85,6 +83,8 @@ Contributions are welcome! Please open an issue or submit a pull request if you 
 This project is licensed under the Apache 2.0 License - see the [LICENSE](LICENSE) file for details.
 
 ## Alternatives
+
+### Running Open WebUI and Pipelines Locally with Docker
 
 If you prefer to run the Open WebUI and Pipelines seperatly locally, you can use the following commands:
 
