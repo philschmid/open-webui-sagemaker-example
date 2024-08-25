@@ -46,10 +46,34 @@ The architecture consists of the following components:
      ```
    - Open the URL `http://localhost:3000` in your web browser.
 
-4. **(WIP) Deploy to AWS:**
+4. **Deploy to AWS:**
+   _Note: The deployment to AWS is not connecting and filesystem or database, so the chat data will be lost when the container is stopped._
+   1. Using AWS CDK (Recommended):
+      - Install the AWS CDK:
+        ```bash
+        npm install -g aws-cdk
+        ```
+      - Change into the `aws-cdk-ecs` directory.
+      - Deploy the stack using the following command:
+        _Note: Currently the SageMaker endpoint is not created by the CDK, so you need to provide the endpoint name as a parameter._
+        ```bash
+        cdk deploy --parameters OpenWebUiEcsCdkStack:SageMakerEndpointName=meta-llama-3-8b-instruct
+        # ✨  Deployment time: 592.51s
+        ```
+      - Note the URL of the deployed Open WebUI in the output.
+      - Open the URL in your web browser.
+      - Clean up the stack using the following command:
+        ```bash
+        cdk destroy
+        ```
 
-   - Once the Cloudformation stack is deployed, you will find the URL for accessing Open WebUI in the Outputs section of the stack.
-   - Open the URL in your web browser.
+## Planned Features
+
+- [ ] Add support for RDS/Aurora to store user data and chat history.
+- [ ] Add support for deploying the LLM to a SageMaker endpoint using the CDK.
+- [ ] Add support for multiple LLMs.
+- [ ] Add support for deploying LLMs to ECS.
+- [ ] Add support for EKS.
 
 ## Contributing
 
@@ -60,6 +84,8 @@ Contributions are welcome! Please open an issue or submit a pull request if you 
 This project is licensed under the Apache 2.0 License - see the [LICENSE](LICENSE) file for details.
 
 ## Alternatives
+
+### Running Open WebUI and Pipelines Locally with Docker
 
 If you prefer to run the Open WebUI and Pipelines seperatly locally, you can use the following commands:
 
