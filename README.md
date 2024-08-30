@@ -69,7 +69,7 @@ The architecture consists of the following components:
 
 ## Planned Features
 
-- [ ] Add support for RDS/Aurora to store user data and chat history.
+- [x] Add support for RDS/Aurora to store user data and chat history.
 - [ ] Add support for deploying the LLM to a SageMaker endpoint using the CDK.
 - [ ] Add support for multiple LLMs.
 - [ ] Add support for deploying LLMs to ECS.
