@@ -11,6 +11,8 @@ services:
       - .env
     extra_hosts:
       - 'host.docker.internal:host-gateway'
+    depends_on:
+      - db # Ensure pipelines start after db
 
   open-webui:
     image: ghcr.io/open-webui/open-webui:main
@@ -19,8 +21,28 @@ services:
     volumes:
       - ./open-webui:/app/backend/data
     environment:
-      - WEBUI_AUTH=False # Set to True to enable authentication
       - OPENAI_API_BASE_URL=http://host.docker.internal:9099 # URL for the pipelines service
       - OPENAI_API_KEY=0p3n-w3bu! # API key for the pipelines service (default)
+      - DATABASE_URL=postgres://user:password@db:5432/mydatabase # PostgreSQL connection URL
+      - DEFAULT_MODELS=meta-llama-3-8b-instruct
+      - DEFAULT_USER_ROLE=user
     depends_on:
-      - pipelines
+      - db # Ensure open-webui starts after db
+      - pipelines # Ensure open-webui starts after pipelines
+
+  db: # Added PostgreSQL service
+    image: postgres:latest
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=mydatabase
+    volumes:
+      - ./pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD', 'pg_isready', '-U', 'user']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  db_data: # Persistent volume for PostgreSQL data
